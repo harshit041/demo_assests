@@ -1,0 +1,1050 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KaaS/EKS Simulation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6; /* Light gray background */
+        }
+        .simulation-area {
+            min-height: 300px; /* Increased height for better visualization */
+            background-color: #ffffff; /* White background for simulation area */
+            border: 1px solid #d1d5db; /* Gray border */
+            border-radius: 0.5rem; /* Rounded corners */
+            padding: 1rem;
+            margin-top: 0.5rem;
+            position: relative; /* For positioning elements within */
+            overflow: auto; /* Changed from hidden to auto to allow scrolling */
+        }
+        .simulation-description {
+            margin-top: 1rem;
+            padding: 1rem;
+            background-color: #e9efff; /* Lighter blue for descriptions */
+            border-left: 4px solid #4f46e5; /* Indigo border */
+            border-radius: 0.375rem; /* Rounded corners */
+        }
+        .clickable-title {
+            cursor: pointer;
+            padding: 0.75rem 1rem; /* Increased padding */
+            background-color: #4f46e5; /* Indigo background */
+            color: white;
+            border-radius: 0.5rem; /* Rounded corners */
+            transition: background-color 0.3s ease;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .clickable-title:hover {
+            background-color: #4338ca; /* Darker indigo on hover */
+        }
+        .clickable-title .arrow {
+            transition: transform 0.3s ease;
+        }
+        .clickable-title.open .arrow {
+            transform: rotate(90deg);
+        }
+        .content {
+            display: none;
+            padding: 1rem;
+            border: 1px solid #e5e7eb; /* Light gray border */
+            border-top: none;
+            border-radius: 0 0 0.5rem 0.5rem; /* Rounded bottom corners */
+            background-color: #f9fafb; /* Very light gray for content area */
+        }
+        .pod {
+            width: 50px;
+            height: 50px;
+            background-color: #34d399; /* Emerald green */
+            border: 1px solid #059669; /* Darker emerald */
+            border-radius: 0.375rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            color: white;
+            position: absolute;
+            transition: all 0.5s ease-in-out;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .node {
+            width: 150px;
+            height: 180px; /* Increased height to accommodate more pods */
+            background-color: #60a5fa; /* Blue */
+            border: 2px solid #2563eb; /* Darker blue */
+            border-radius: 0.5rem;
+            padding: 0.5rem;
+            display: flex;
+            flex-direction: column; /* Stack pods vertically */
+            align-items: center;
+            justify-content: flex-start; /* Align pods to the top */
+            position: absolute;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .node-label {
+            font-size: 0.8rem;
+            color: white;
+            background-color: #2563eb;
+            padding: 2px 6px;
+            border-radius: 0.25rem;
+            margin-bottom: 0.5rem;
+        }
+        .master-node, .eks-control-plane {
+            width: 180px;
+            height: 100px;
+            background-color: #f59e0b; /* Amber */
+            border: 2px solid #d97706; /* Darker amber */
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+            position: absolute;
+            text-align: center;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .aws-service {
+            width: 100px;
+            height: 70px;
+            background-color: #f97316; /* Orange */
+            border: 2px solid #ea580c; /* Darker orange */
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+            position: absolute;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .traffic {
+            width: 20px;
+            height: 20px;
+            background-color: #ef4444; /* Red */
+            border-radius: 50%;
+            position: absolute;
+            animation: pulse 1s infinite alternate;
+        }
+        @keyframes pulse {
+            from { transform: scale(1); opacity: 1; }
+            to { transform: scale(1.2); opacity: 0.7; }
+        }
+        .message-box {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0,0,0,0.7);
+            color: white;
+            padding: 8px 15px;
+            border-radius: 5px;
+            font-size: 0.9em;
+            z-index: 100;
+        }
+
+        /* Specific for Fargate - no visible nodes */
+        .fargate-pod-area {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+        }
+
+        /* Simple button styling */
+        .sim-button {
+            background-color: #10b981; /* Emerald */
+            color: white;
+            padding: 8px 16px;
+            border-radius: 0.375rem;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            margin-top: 10px;
+            margin-right: 5px;
+        }
+        .sim-button:hover {
+            background-color: #059669; /* Darker Emerald */
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="p-4 md:p-8">
+
+    <h1 class="text-3xl font-bold text-center mb-8 text-indigo-700">Interactive KaaS/EKS Simulation</h1>
+
+    <div class="space-y-4 max-w-4xl mx-auto">
+        <div>
+            <div class="clickable-title" onclick="toggleSection('k8sBasics')">
+                <span>1. What is Kubernetes? (Container Orchestration)</span>
+                <span class="arrow">&#9654;</span>
+            </div>
+            <div id="k8sBasicsContent" class="content">
+                <div id="k8sBasicsSim" class="simulation-area">
+                    </div>
+                <div class="simulation-description">
+                    <p class="font-semibold">Explanation:</p>
+                    <p>Kubernetes (K8s) is an open-source system for automating deployment, scaling, and management of containerized applications.
+                    The <span class="font-semibold text-amber-600">K8s Master</span> (Control Plane) makes global decisions about the cluster (e.g., scheduling).
+                    Worker <span class="font-semibold text-blue-600">Nodes</span> are VMs or physical machines that run your applications.
+                    Applications are packaged into <span class="font-semibold text-emerald-600">Pods</span> (one or more containers) which are the smallest deployable units in Kubernetes.
+                    The Master schedules Pods to run on Nodes.
+                    </p>
+                    <button class="sim-button" onclick="runK8sBasicsSimulation()">Run Simulation</button>
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <div class="clickable-title" onclick="toggleSection('autoScaling')">
+                <span>2. Automated Scaling</span>
+                <span class="arrow">&#9654;</span>
+            </div>
+            <div id="autoScalingContent" class="content">
+                <div id="autoScalingSim" class="simulation-area"></div>
+                <div class="simulation-description">
+                    <p class="font-semibold">Explanation:</p>
+                    <p>Kubernetes can automatically scale your application up or down based on demand (e.g., CPU utilization or custom metrics).
+                    When load increases, the Horizontal Pod Autoscaler (HPA) increases the number of <span class="font-semibold text-emerald-600">Pods</span>.
+                    If more resources are needed than available on current Nodes, the Cluster Autoscaler can add more <span class="font-semibold text-blue-600">Nodes</span> (in cloud environments).
+                    When load decreases, Pods and Nodes can be scaled down to save resources.
+                    </p>
+                    <button class="sim-button" onclick="runAutoScalingSimulation(true)">Simulate Scale Up</button>
+                    <button class="sim-button" onclick="runAutoScalingSimulation(false)">Simulate Scale Down</button>
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <div class="clickable-title" onclick="toggleSection('selfHealing')">
+                <span>3. High Availability & Self-Healing</span>
+                <span class="arrow">&#9654;</span>
+            </div>
+            <div id="selfHealingContent" class="content">
+                <div id="selfHealingSim" class="simulation-area"></div>
+                <div class="simulation-description">
+                    <p class="font-semibold">Explanation:</p>
+                    <p>Kubernetes is designed for resilience. If a <span class="font-semibold text-emerald-600">Pod</span> becomes unhealthy or a <span class="font-semibold text-blue-600">Node</span> fails, Kubernetes automatically detects this.
+                    It will then restart or replace the failed Pods on healthy Nodes to maintain the desired state of your application, ensuring high availability. This is known as self-healing.
+                    </p>
+                    <button class="sim-button" onclick="runSelfHealingSimulation()">Simulate Pod Failure</button>
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <div class="clickable-title" onclick="toggleSection('managedControlPlane')">
+                <span>4. Managed Control Plane (Amazon EKS)</span>
+                <span class="arrow">&#9654;</span>
+            </div>
+            <div id="managedControlPlaneContent" class="content">
+                <div id="managedControlPlaneSim" class="simulation-area"></div>
+                <div class="simulation-description">
+                    <p class="font-semibold">Explanation:</p>
+                    <p>With Amazon EKS (Elastic Kubernetes Service), AWS manages the Kubernetes control plane (master nodes and etcd database).
+                    This means AWS handles tasks like provisioning, scaling, patching, and ensuring high availability of the <span class="font-semibold text-amber-600">EKS Control Plane</span> across multiple Availability Zones.
+                    You (the customer) focus on deploying and managing your applications on worker <span class="font-semibold text-blue-600">Nodes</span>.
+                    </p>
+                    <button class="sim-button" onclick="runManagedControlPlaneSimulation()">Show EKS Management</button>
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <div class="clickable-title" onclick="toggleSection('workerNodes')">
+                <span>5. Worker Node Flexibility (EC2 vs. Fargate)</span>
+                <span class="arrow">&#9654;</span>
+            </div>
+            <div id="workerNodesContent" class="content">
+                <div id="workerNodesSimEC2" class="simulation-area mb-4">
+                    <p class="text-center font-semibold text-indigo-600 p-2">EKS with EC2 Managed Nodes</p>
+                </div>
+                <div id="workerNodesSimFargate" class="simulation-area">
+                     <p class="text-center font-semibold text-indigo-600 p-2">EKS with AWS Fargate</p>
+                </div>
+                <div class="simulation-description">
+                    <p class="font-semibold">Explanation:</p>
+                    <p><strong>EKS with EC2 Managed Node Groups:</strong> AWS helps manage EC2 instances as worker nodes. EKS automates provisioning, updates, and lifecycle management of these nodes. You still have visibility and can choose instance types. <span class="font-semibold text-emerald-600">Pods</span> run on these EC2 instances.</p>
+                    <p><strong>EKS with AWS Fargate:</strong> A serverless compute option. You define Pod resource requirements, and Fargate runs them without you managing underlying EC2 instances. <span class="font-semibold text-emerald-600">Pods</span> appear to run directly, abstracting away the nodes. Ideal for maximum operational offload.</p>
+                    <button class="sim-button" onclick="runWorkerNodeEC2Simulation()">Simulate EC2 Nodes</button>
+                    <button class="sim-button" onclick="runWorkerNodeFargateSimulation()">Simulate Fargate</button>
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <div class="clickable-title" onclick="toggleSection('awsIntegration')">
+                <span>6. Integration with AWS Services (ELB & ECR)</span>
+                <span class="arrow">&#9654;</span>
+            </div>
+            <div id="awsIntegrationContent" class="content">
+                <div id="awsIntegrationSimELB" class="simulation-area mb-4">
+                     <p class="text-center font-semibold text-indigo-600 p-2">Elastic Load Balancing (ELB)</p>
+                </div>
+                <div id="awsIntegrationSimECR" class="simulation-area">
+                     <p class="text-center font-semibold text-indigo-600 p-2">Elastic Container Registry (ECR)</p>
+                </div>
+                <div class="simulation-description">
+                    <p class="font-semibold">Explanation:</p>
+                    <p><strong>Elastic Load Balancing (ELB):</strong> EKS integrates with AWS ELB (e.g., Application Load Balancer) to distribute incoming internet traffic across multiple <span class="font-semibold text-emerald-600">Pods</span> in your application, enhancing availability and fault tolerance.</p>
+                    <p><strong>Elastic Container Registry (ECR):</strong> You can store your Docker container images in Amazon ECR. EKS can then seamlessly pull these images from ECR to deploy your applications as <span class="font-semibold text-emerald-600">Pods</span> on your cluster.</p>
+                    <button class="sim-button" onclick="runELBIntegrationSimulation()">Simulate ELB</button>
+                    <button class="sim-button" onclick="runECRIntegrationSimulation()">Simulate ECR</button>
+                </div>
+            </div>
+        </div>
+         <div>
+            <div class="clickable-title" onclick="toggleSection('simplifiedCreation')">
+                <span>7. Simplified Cluster Creation & Management</span>
+                <span class="arrow">&#9654;</span>
+            </div>
+            <div id="simplifiedCreationContent" class="content">
+                <div id="simplifiedCreationSim" class="simulation-area"></div>
+                <div class="simulation-description">
+                    <p class="font-semibold">Explanation:</p>
+                    <p>Amazon EKS drastically simplifies Kubernetes cluster creation. Instead of manually setting up the complex control plane components and worker node configurations, EKS automates this. With a few clicks in the AWS console or API calls, AWS provisions and configures the <span class="font-semibold text-amber-600">EKS Control Plane</span> and can help set up <span class="font-semibold text-blue-600">Worker Nodes</span>. This allows you to get a production-ready Kubernetes cluster up and running much faster, letting your team focus on deploying applications rather than K8s infrastructure setup.</p>
+                    <button class="sim-button" onclick="runSimplifiedCreationSimulation()">Simulate Cluster Creation</button>
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <div class="clickable-title" onclick="toggleSection('reducedOverhead')">
+                <span>8. Reduced Operational Overhead</span>
+                <span class="arrow">&#9654;</span>
+            </div>
+            <div id="reducedOverheadContent" class="content">
+                <div id="reducedOverheadSim" class="simulation-area"></div>
+                <div class="simulation-description">
+                    <p class="font-semibold">Explanation:</p>
+                    <p>Managing a self-hosted Kubernetes cluster involves significant operational effort: patching the OS and K8s components, upgrading versions, ensuring control plane availability, managing etcd backups, securing the components, etc. Amazon EKS takes over these responsibilities for the <span class="font-semibold text-amber-600">Control Plane</span>. This means AWS handles its patching, upgrades, security, and high availability. This significantly reduces the operational burden on your team, freeing up valuable time and resources to focus on application development and innovation rather than infrastructure maintenance.</p>
+                    <button class="sim-button" onclick="runReducedOverheadSimulation()">Show Overhead Reduction</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // Helper function to clear simulation area
+        function clearSimArea(areaId) {
+            const simArea = document.getElementById(areaId);
+            simArea.innerHTML = ''; // Clear previous elements
+             // Add back the title if it was there
+            if (areaId === 'workerNodesSimEC2') simArea.innerHTML = '<p class="text-center font-semibold text-indigo-600 p-2">EKS with EC2 Managed Nodes</p>';
+            if (areaId === 'workerNodesSimFargate') simArea.innerHTML = '<p class="text-center font-semibold text-indigo-600 p-2">EKS with AWS Fargate</p>';
+            if (areaId === 'awsIntegrationSimELB') simArea.innerHTML = '<p class="text-center font-semibold text-indigo-600 p-2">Elastic Load Balancing (ELB)</p>';
+            if (areaId === 'awsIntegrationSimECR') simArea.innerHTML = '<p class="text-center font-semibold text-indigo-600 p-2">Elastic Container Registry (ECR)</p>';
+        }
+
+        // Helper to show a temporary message
+        function showMessage(simAreaId, text) {
+            const simArea = document.getElementById(simAreaId);
+            // Remove existing message box if any
+            const existingMessageBox = simArea.querySelector('.message-box');
+            if (existingMessageBox) {
+                existingMessageBox.remove();
+            }
+
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message-box';
+            messageDiv.textContent = text;
+            simArea.appendChild(messageDiv);
+            setTimeout(() => {
+                if (simArea.contains(messageDiv)) {
+                     simArea.removeChild(messageDiv);
+                }
+            }, 3000); // Message visible for 3 seconds
+        }
+
+
+        // --- Section 1: K8s Basics ---
+        function runK8sBasicsSimulation() {
+            const simAreaId = 'k8sBasicsSim';
+            clearSimArea(simAreaId);
+            const simArea = document.getElementById(simAreaId);
+
+            // Create Master Node
+            const master = document.createElement('div');
+            master.className = 'master-node';
+            master.textContent = 'K8s Master';
+            master.style.top = '20px';
+            master.style.left = '50%';
+            master.style.transform = 'translateX(-50%)';
+            simArea.appendChild(master);
+
+            // Create Worker Nodes
+            const node1 = document.createElement('div');
+            node1.className = 'node';
+            node1.innerHTML = '<span class="node-label">Node 1</span>';
+            node1.style.top = '140px'; // Positioned below master
+            node1.style.left = 'calc(50% - 170px)'; 
+            simArea.appendChild(node1);
+
+            const node2 = document.createElement('div');
+            node2.className = 'node';
+            node2.innerHTML = '<span class="node-label">Node 2</span>';
+            node2.style.top = '140px'; // Positioned below master
+            node2.style.left = 'calc(50% + 20px)'; 
+            simArea.appendChild(node2);
+            
+            showMessage(simAreaId, 'Master schedules pods to nodes.');
+
+            // Create and schedule Pods
+            setTimeout(() => {
+                const pod1 = document.createElement('div');
+                pod1.className = 'pod';
+                pod1.textContent = 'Pod A';
+                // Start near master for visual effect, then move to node
+                pod1.style.top = '70px'; 
+                pod1.style.left = 'calc(50% - 25px)';
+                simArea.appendChild(pod1);
+
+                setTimeout(() => { // Animate Pod1 to Node1
+                    // Calculate target position relative to the simulation area
+                    const node1Rect = node1.getBoundingClientRect();
+                    const simAreaRect = simArea.getBoundingClientRect();
+                    pod1.style.top = (node1Rect.top - simAreaRect.top + 30) + 'px'; // 30px offset from node top
+                    pod1.style.left = (node1Rect.left - simAreaRect.left + (node1.offsetWidth / 2) - (pod1.offsetWidth / 2)) + 'px';
+                }, 500);
+            }, 1000);
+
+            setTimeout(() => {
+                const pod2 = document.createElement('div');
+                pod2.className = 'pod';
+                pod2.textContent = 'Pod B';
+                pod2.style.top = '70px'; 
+                pod2.style.left = 'calc(50% - 25px)';
+                simArea.appendChild(pod2);
+
+                setTimeout(() => { // Animate Pod2 to Node2
+                    const node2Rect = node2.getBoundingClientRect();
+                    const simAreaRect = simArea.getBoundingClientRect();
+                    pod2.style.top = (node2Rect.top - simAreaRect.top + 30) + 'px';
+                    pod2.style.left = (node2Rect.left - simAreaRect.left + (node2.offsetWidth / 2) - (pod2.offsetWidth / 2)) + 'px';
+                }, 500);
+            }, 2000);
+        }
+
+        // --- Section 2: Automated Scaling ---
+        let currentPodsScaling = 2; // Use a different variable name to avoid conflict
+        const maxPodsScaling = 4;
+        const minPodsScaling = 1;
+
+        function runAutoScalingSimulation(scaleUp) {
+            const simAreaId = 'autoScalingSim';
+            clearSimArea(simAreaId);
+            const simArea = document.getElementById(simAreaId);
+
+            const loadMeter = document.createElement('div');
+            loadMeter.style.width = '100px';
+            loadMeter.style.height = '30px';
+            loadMeter.style.border = '2px solid #10b981';
+            loadMeter.style.borderRadius = '5px';
+            loadMeter.style.position = 'absolute';
+            loadMeter.style.top = '10px'; // Adjusted top
+            loadMeter.style.left = '10px'; // Adjusted left
+            loadMeter.textContent = 'Load: Normal';
+            loadMeter.style.textAlign = 'center';
+            loadMeter.style.lineHeight = '30px';
+            loadMeter.style.backgroundColor = '#d1fae5';
+            simArea.appendChild(loadMeter);
+
+            const node = document.createElement('div');
+            node.className = 'node';
+            node.innerHTML = '<span class="node-label">Node</span>';
+            node.style.top = '50px'; // Adjusted top
+            node.style.left = '50%';
+            node.style.transform = 'translateX(-50%)';
+            node.style.height = 'auto'; 
+            node.style.minHeight = '220px'; // Increased min-height for node
+            node.style.paddingBottom = '10px';
+            node.style.display = 'flex'; // Use flex for pod alignment
+            node.style.flexDirection = 'column';
+            node.style.alignItems = 'center';
+            simArea.appendChild(node);
+
+            function addPodToScalingNode(index, parentNode) {
+                const pod = document.createElement('div');
+                pod.className = 'pod';
+                pod.textContent = `Pod ${String.fromCharCode(65 + index)}`;
+                pod.style.position = 'relative'; 
+                pod.style.top = 'auto'; // Reset absolute positioning
+                pod.style.left = 'auto'; // Reset absolute positioning
+                pod.style.marginTop = '10px';
+                parentNode.appendChild(pod);
+                return pod;
+            }
+            
+            // Clear existing pods from the node before redrawing
+            while (node.querySelector('.pod')) {
+                node.removeChild(node.querySelector('.pod'));
+            }
+            
+            if (scaleUp) {
+                if (currentPodsScaling < maxPodsScaling) { 
+                    currentPodsScaling++;
+                    loadMeter.textContent = 'Load: High';
+                    loadMeter.style.borderColor = '#ef4444'; 
+                    loadMeter.style.backgroundColor = '#fee2e2';
+                    showMessage(simAreaId, `Scaling up: ${currentPodsScaling} Pods.`);
+                } else {
+                    showMessage(simAreaId, 'Max Pods reached for this demo.');
+                }
+            } else { // Scale Down
+                if (currentPodsScaling > minPodsScaling) { 
+                    currentPodsScaling--;
+                    loadMeter.textContent = 'Load: Low';
+                    loadMeter.style.borderColor = '#60a5fa'; 
+                    loadMeter.style.backgroundColor = '#dbeafe';
+                    showMessage(simAreaId, `Scaling down: ${currentPodsScaling} Pods.`);
+                } else {
+                     showMessage(simAreaId, 'Min Pods reached for this demo.');
+                }
+            }
+            // Add current number of pods
+            for (let i = 0; i < currentPodsScaling; i++) {
+                addPodToScalingNode(i, node);
+            }
+        }
+
+
+        // --- Section 3: Self-Healing ---
+        function runSelfHealingSimulation() {
+            const simAreaId = 'selfHealingSim';
+            clearSimArea(simAreaId);
+            const simArea = document.getElementById(simAreaId);
+
+            const master = document.createElement('div');
+            master.className = 'master-node';
+            master.textContent = 'K8s Master';
+            master.style.top = '20px';
+            master.style.left = '50%';
+            master.style.transform = 'translateX(-50%)';
+            simArea.appendChild(master);
+
+            const node1 = document.createElement('div');
+            node1.className = 'node';
+            node1.innerHTML = '<span class="node-label">Node 1</span>';
+            node1.style.top = '140px';
+            node1.style.left = 'calc(50% - 170px)';
+            simArea.appendChild(node1);
+
+            const node2 = document.createElement('div');
+            node2.className = 'node';
+            node2.innerHTML = '<span class="node-label">Node 2</span>';
+            node2.style.top = '140px';
+            node2.style.left = 'calc(50% + 20px)';
+            simArea.appendChild(node2);
+
+            // Use createPodElement for consistent pod creation
+            const podToFail = createPodElementAbsolute('Pod X', simArea, '170px', 'calc(50% - 170px + 50px)'); // Initial pos on Node 1
+            const healthyPod = createPodElementAbsolute('Pod Y', simArea, '170px', 'calc(50% + 20px + 50px)'); // Initial pos on Node 2
+            
+            showMessage(simAreaId, 'Simulating Pod X failure...');
+
+            setTimeout(() => { // Pod fails
+                podToFail.style.backgroundColor = '#ef4444'; // Red for failed
+                podToFail.textContent = 'Pod X (Failed)';
+                showMessage(simAreaId, 'K8s Master detects failure...');
+            }, 2000);
+
+            setTimeout(() => { // K8s reschedules
+                // Visually move the "failed" pod away or hide it
+                podToFail.style.opacity = '0'; 
+                podToFail.style.top = '-100px'; // Move it off screen
+
+                // Create a new pod on Node 2
+                const newPod = createPodElementAbsolute('Pod X (New)', simArea, '200px', 'calc(50% + 20px + 50px)'); // Place on Node 2, slightly lower
+                newPod.style.backgroundColor = '#34d399'; // Healthy green
+                newPod.style.opacity = '0';
+                setTimeout(() => newPod.style.opacity = '1', 100); // Fade in
+                showMessage(simAreaId, 'Pod X rescheduled on Node 2!');
+            }, 4000);
+        }
+        
+        // Helper to create a pod and append it to a PARENT NODE (for relative positioning within node)
+        function createPodElement(text, parentNode, topMargin = 10) {
+            const pod = document.createElement('div');
+            pod.className = 'pod';
+            pod.textContent = text;
+            pod.style.position = 'relative'; // Relative to the parentNode
+            pod.style.top = 'auto';
+            pod.style.left = 'auto';
+            pod.style.marginTop = `${topMargin}px`;
+            parentNode.appendChild(pod);
+            return pod;
+        }
+
+        // Helper to create a pod and append it to the SIMULATION AREA (for absolute positioning)
+        function createPodElementAbsolute(text, simArea, top, left) {
+            const pod = document.createElement('div');
+            pod.className = 'pod';
+            pod.textContent = text;
+            pod.style.position = 'absolute';
+            pod.style.top = top;
+            pod.style.left = left;
+            simArea.appendChild(pod);
+            return pod;
+        }
+
+
+        // --- Section 4: Managed Control Plane ---
+        function runManagedControlPlaneSimulation() {
+            const simAreaId = 'managedControlPlaneSim';
+            clearSimArea(simAreaId);
+            const simArea = document.getElementById(simAreaId);
+
+            const eksCp = document.createElement('div');
+            eksCp.className = 'eks-control-plane';
+            eksCp.innerHTML = 'AWS EKS<br>Control Plane <span id="cpStatus">(Managed)</span>';
+            eksCp.style.top = '20px';
+            eksCp.style.left = '50%';
+            eksCp.style.transform = 'translateX(-50%)';
+            eksCp.style.backgroundColor = '#ca8a04'; 
+            eksCp.style.borderColor = '#a16207';
+            simArea.appendChild(eksCp);
+
+            const workerNode = document.createElement('div');
+            workerNode.className = 'node';
+            workerNode.innerHTML = '<span class="node-label">Your Worker Node</span>';
+            workerNode.style.top = '150px';
+            workerNode.style.left = '50%';
+            workerNode.style.transform = 'translateX(-50%)';
+            simArea.appendChild(workerNode);
+            // Use the relative pod creation for pods inside a node
+            createPodElement('App Pod 1', workerNode, 10); // 10px margin from top of node content area
+            createPodElement('App Pod 2', workerNode, 10);
+
+            showMessage(simAreaId, 'AWS manages EKS Control Plane (updates, HA)...');
+
+            setTimeout(() => {
+                const cpStatus = document.getElementById('cpStatus');
+                if(cpStatus) cpStatus.textContent = '(Updating...)';
+                eksCp.style.transition = 'all 0.5s';
+                eksCp.style.transform = 'translateX(-50%) scale(1.1)';
+                setTimeout(() => {
+                    if(cpStatus) cpStatus.textContent = '(Managed)';
+                    eksCp.style.transform = 'translateX(-50%) scale(1)';
+                    showMessage(simAreaId, 'Control Plane updated by AWS. Your apps keep running!');
+                }, 2000);
+            }, 2000);
+        }
+        
+        // --- Section 5: Worker Node Flexibility ---
+        function runWorkerNodeEC2Simulation() {
+            const simAreaId = 'workerNodesSimEC2';
+            clearSimArea(simAreaId); // This will also add back the title
+            const simArea = document.getElementById(simAreaId);
+
+            const eksCp = document.createElement('div');
+            eksCp.className = 'eks-control-plane';
+            eksCp.textContent = 'EKS CP';
+            eksCp.style.top = '10px';
+            eksCp.style.left = '50%';
+            eksCp.style.transform = 'translateX(-50%)';
+            eksCp.style.width = '120px';
+            eksCp.style.height = '60px';
+            simArea.appendChild(eksCp);
+
+            const ec2Node1 = document.createElement('div');
+            ec2Node1.className = 'node';
+            ec2Node1.innerHTML = '<span class="node-label">EC2 Node 1</span>';
+            ec2Node1.style.top = '100px';
+            ec2Node1.style.left = 'calc(50% - 100px - 5px)'; // Adjusted for spacing
+            ec2Node1.style.width = '120px';
+            ec2Node1.style.height = '150px'; // Adjusted height
+            simArea.appendChild(ec2Node1);
+            createPodElement('Pod A', ec2Node1, 5); // Pod relative to ec2Node1
+
+            const ec2Node2 = document.createElement('div');
+            ec2Node2.className = 'node';
+            ec2Node2.innerHTML = '<span class="node-label">EC2 Node 2</span>';
+            ec2Node2.style.top = '100px';
+            ec2Node2.style.left = 'calc(50% + 5px)'; // Adjusted for spacing
+            ec2Node2.style.width = '120px';
+            ec2Node2.style.height = '150px'; // Adjusted height
+            simArea.appendChild(ec2Node2);
+            createPodElement('Pod B', ec2Node2, 5); // Pod relative to ec2Node2
+            
+            showMessage(simAreaId, 'Pods run on EKS-managed EC2 instances.');
+        }
+
+        function runWorkerNodeFargateSimulation() {
+            const simAreaId = 'workerNodesSimFargate';
+            clearSimArea(simAreaId); // This will also add back the title
+            const simArea = document.getElementById(simAreaId);
+            // Remove fargate-pod-area class if it was added, then re-add for proper styling
+            simArea.classList.remove('fargate-pod-area'); 
+            simArea.style.display = 'block'; // Reset display if it was changed
+            simArea.classList.add('fargate-pod-area'); 
+
+
+            const eksCp = document.createElement('div');
+            eksCp.className = 'eks-control-plane';
+            eksCp.textContent = 'EKS CP';
+            eksCp.style.position = 'relative'; 
+            eksCp.style.top = 'auto'; // Reset from absolute if any
+            eksCp.style.left = 'auto'; // Reset from absolute if any
+            eksCp.style.transform = 'none'; // Reset transform
+            eksCp.style.width = '120px';
+            eksCp.style.height = '60px';
+            eksCp.style.marginBottom = '20px'; 
+            simArea.appendChild(eksCp);
+            
+            showMessage(simAreaId, 'Fargate: Pods run serverlessly, no visible nodes to manage!');
+
+            // Create pods that appear without explicit nodes
+            for (let i = 0; i < 3; i++) {
+                const pod = document.createElement('div');
+                pod.className = 'pod';
+                pod.textContent = `Pod ${String.fromCharCode(67 + i)}`;
+                pod.style.position = 'relative'; // For flex layout within fargate-pod-area
+                pod.style.top = 'auto';
+                pod.style.left = 'auto';
+                pod.style.opacity = '0';
+                // Add a small delay for each pod to appear sequentially
+                setTimeout(() => {
+                    simArea.appendChild(pod); // Append after a delay
+                    setTimeout(() => pod.style.opacity = '1', 50); // Fade in quickly
+                }, (i + 1) * 300);
+            }
+        }
+
+        // --- Section 6: AWS Integration ---
+        function runELBIntegrationSimulation() {
+            const simAreaId = 'awsIntegrationSimELB';
+            clearSimArea(simAreaId); // Adds back title
+            const simArea = document.getElementById(simAreaId);
+
+            const elb = document.createElement('div');
+            elb.className = 'aws-service';
+            elb.textContent = 'AWS ELB';
+            elb.style.top = '80px';
+            elb.style.left = '50%';
+            elb.style.transform = 'translateX(-50%)';
+            simArea.appendChild(elb);
+
+            // Use createPodElementAbsolute for pods in this sim area
+            const pod1 = createPodElementAbsolute('Pod 1', simArea, '180px', 'calc(50% - 70px)');
+            const pod2 = createPodElementAbsolute('Pod 2', simArea, '180px', 'calc(50% + 20px)');
+
+            const traffic = document.createElement('div');
+            traffic.className = 'traffic';
+            traffic.style.top = '20px';
+            traffic.style.left = 'calc(50% - 10px)';
+            simArea.appendChild(traffic);
+            
+            showMessage(simAreaId, 'Traffic hits ELB, distributed to Pods.');
+
+            setTimeout(() => {
+                traffic.style.transition = 'top 0.5s linear';
+                traffic.style.top = '70px'; 
+            }, 500);
+
+            setTimeout(() => {
+                traffic.style.display = 'none'; 
+                const trafficToPod1 = document.createElement('div');
+                trafficToPod1.className = 'traffic';
+                trafficToPod1.style.width = '10px'; trafficToPod1.style.height = '10px';
+                trafficToPod1.style.top = '130px'; trafficToPod1.style.left = 'calc(50% - 40px)'; // Adjusted for ELB center
+                trafficToPod1.style.animation = 'none'; // Stop main pulse for these small ones
+                simArea.appendChild(trafficToPod1);
+
+                const trafficToPod2 = document.createElement('div');
+                trafficToPod2.className = 'traffic';
+                trafficToPod2.style.width = '10px'; trafficToPod2.style.height = '10px';
+                trafficToPod2.style.top = '130px'; trafficToPod2.style.left = 'calc(50% + 30px)'; // Adjusted for ELB center
+                trafficToPod2.style.animation = 'none';
+                simArea.appendChild(trafficToPod2);
+
+                // Animate small traffic bits towards pods
+                setTimeout(() => {
+                    trafficToPod1.style.transition = 'top 0.4s linear, left 0.4s linear';
+                    trafficToPod1.style.top = '170px';
+                    trafficToPod1.style.left = pod1.style.left; 
+                    
+                    trafficToPod2.style.transition = 'top 0.4s linear, left 0.4s linear';
+                    trafficToPod2.style.top = '170px';
+                    trafficToPod2.style.left = pod2.style.left;
+                }, 100);
+
+
+                setTimeout(() => { // Clean up small traffic bits
+                    if(simArea.contains(trafficToPod1)) simArea.removeChild(trafficToPod1);
+                    if(simArea.contains(trafficToPod2)) simArea.removeChild(trafficToPod2);
+                }, 1500);
+            }, 1000);
+        }
+
+        function runECRIntegrationSimulation() {
+            const simAreaId = 'awsIntegrationSimECR';
+            clearSimArea(simAreaId); // Adds back title
+            const simArea = document.getElementById(simAreaId);
+
+            const dev = document.createElement('div');
+            dev.textContent = 'Dev';
+            dev.className = 'aws-service'; 
+            dev.style.backgroundColor = '#a855f7'; dev.style.borderColor = '#9333ea'; 
+            dev.style.top = '20px';
+            dev.style.left = '30px';
+            simArea.appendChild(dev);
+
+            const ecr = document.createElement('div');
+            ecr.className = 'aws-service';
+            ecr.textContent = 'AWS ECR';
+            ecr.style.top = '90px';
+            ecr.style.left = '50%';
+            ecr.style.transform = 'translateX(-50%)';
+            simArea.appendChild(ecr);
+
+            const eksCp = document.createElement('div');
+            eksCp.className = 'eks-control-plane';
+            eksCp.textContent = 'EKS CP';
+            eksCp.style.top = '20px';
+            eksCp.style.right = '30px'; // Positioned to the right
+            eksCp.style.left = 'auto'; // Clear left
+            eksCp.style.width = '100px'; eksCp.style.height = '60px';
+            simArea.appendChild(eksCp);
+            
+            const node = document.createElement('div');
+            node.className = 'node';
+            node.innerHTML = '<span class="node-label">Node</span>';
+            node.style.top = '180px'; // Lowered node
+            node.style.left = '50%';
+            node.style.transform = 'translateX(-50%)';
+            node.style.width = '120px'; node.style.height = '100px'; 
+            simArea.appendChild(node);
+
+            const imageIcon = document.createElement('div');
+            imageIcon.textContent = 'IMG';
+            imageIcon.style.width = '30px'; imageIcon.style.height='30px';
+            imageIcon.style.backgroundColor = '#fde047'; imageIcon.style.color = '#713f12';
+            imageIcon.style.textAlign = 'center'; imageIcon.style.lineHeight = '30px';
+            imageIcon.style.borderRadius = '4px'; imageIcon.style.position = 'absolute';
+            imageIcon.style.top = '35px'; 
+            imageIcon.style.left = (dev.offsetLeft + dev.offsetWidth + 10) + 'px'; // Start right of dev
+            imageIcon.style.transition = 'all 1s ease-in-out';
+            simArea.appendChild(imageIcon);
+            
+            showMessage(simAreaId, 'Dev pushes image to ECR...');
+
+            setTimeout(() => { // Image to ECR
+                imageIcon.style.top = ecr.offsetTop + (ecr.offsetHeight / 2) - (imageIcon.offsetHeight / 2) + 'px';
+                imageIcon.style.left = ecr.offsetLeft + (ecr.offsetWidth / 2) - (imageIcon.offsetWidth / 2) + 'px';
+            }, 500);
+
+            setTimeout(() => { 
+                showMessage(simAreaId, 'EKS pulls image from ECR to deploy Pod...');
+                // Image moves from ECR to Node conceptually
+                imageIcon.style.top = node.offsetTop + 30 + 'px'; // Move towards node
+                imageIcon.style.left = node.offsetLeft + (node.offsetWidth / 2) - (imageIcon.offsetWidth / 2) + 'px';
+                
+                setTimeout(() => {
+                    imageIcon.style.opacity = '0'; // Image "consumed" by the node
+                     if(simArea.contains(imageIcon)) simArea.removeChild(imageIcon); // Remove after fade
+                    const pod = createPodElement('App', node, 5); // Pod appears inside the node
+                    pod.style.opacity = '0';
+                    setTimeout(() => pod.style.opacity = '1', 100);
+                }, 600); // Time for image to reach node and fade
+            }, 2000);
+        }
+
+        // --- Section 7: Simplified Cluster Creation ---
+        function runSimplifiedCreationSimulation() {
+            const simAreaId = 'simplifiedCreationSim';
+            clearSimArea(simAreaId);
+            const simArea = document.getElementById(simAreaId);
+
+            const buttonContainer = document.createElement('div');
+            buttonContainer.style.textAlign = 'center';
+            buttonContainer.style.paddingTop = '10px'; // Reduced padding
+            simArea.appendChild(buttonContainer);
+
+            const createButton = document.createElement('button');
+            createButton.className = 'sim-button';
+            createButton.style.backgroundColor = '#3b82f6'; 
+            createButton.style.fontSize = '1.1em';
+            createButton.textContent = 'Click: Create EKS Cluster';
+            buttonContainer.appendChild(createButton);
+            
+            createButton.onclick = () => {
+                createButton.disabled = true;
+                createButton.textContent = 'Provisioning...';
+                showMessage(simAreaId, 'AWS EKS starts provisioning...');
+
+                const awsCloud = document.createElement('div');
+                awsCloud.textContent = '☁️ AWS';
+                awsCloud.style.fontSize = '2.5em'; // Slightly smaller cloud
+                awsCloud.style.position = 'absolute';
+                awsCloud.style.top = '60px'; // Cloud higher up
+                awsCloud.style.left = '50%';
+                awsCloud.style.transform = 'translateX(-50%)';
+                awsCloud.style.opacity = '0';
+                awsCloud.style.transition = 'opacity 1s ease, transform 1s ease';
+                simArea.appendChild(awsCloud);
+
+                setTimeout(() => {
+                    awsCloud.style.opacity = '1';
+                    awsCloud.style.transform = 'translateX(-50%) scale(1.1)'; // Slightly smaller scale
+                }, 100);
+
+                setTimeout(() => { // Control Plane appears
+                    const eksCp = document.createElement('div');
+                    eksCp.className = 'eks-control-plane';
+                    eksCp.textContent = 'EKS Control Plane';
+                    eksCp.style.top = '130px'; // Adjusted position
+                    eksCp.style.left = 'calc(50% - 100px - 10px)'; // Positioned to the left
+                    eksCp.style.width = '160px'; // Slightly smaller
+                    eksCp.style.opacity = '0';
+                    eksCp.style.transition = 'opacity 0.5s ease';
+                    simArea.appendChild(eksCp);
+                    setTimeout(() => eksCp.style.opacity = '1', 50);
+                    awsCloud.style.opacity = '0.5'; 
+                }, 1500);
+
+                setTimeout(() => { // Worker Node appears
+                    const workerNode = document.createElement('div');
+                    workerNode.className = 'node';
+                    workerNode.innerHTML = '<span class="node-label">Worker Node</span>';
+                    workerNode.style.top = '130px'; // Adjusted position
+                    workerNode.style.left = 'calc(50% + 10px)'; // Positioned to the right
+                    workerNode.style.width = '140px'; // Slightly smaller
+                    workerNode.style.height = '150px';
+                    workerNode.style.opacity = '0';
+                    workerNode.style.transition = 'opacity 0.5s ease';
+                    simArea.appendChild(workerNode);
+                    setTimeout(() => workerNode.style.opacity = '1', 50);
+                    showMessage(simAreaId, 'EKS Cluster created!');
+                    createButton.textContent = 'Cluster Created!';
+                    createButton.style.backgroundColor = '#22c55e'; // Green for success
+                }, 2500);
+            };
+        }
+
+        // --- Section 8: Reduced Operational Overhead ---
+        function runReducedOverheadSimulation() {
+            const simAreaId = 'reducedOverheadSim';
+            clearSimArea(simAreaId);
+            const simArea = document.getElementById(simAreaId);
+
+            const adminText = document.createElement('div');
+            adminText.style.position = 'absolute';
+            adminText.style.top = '10px';
+            adminText.style.left = '50%';
+            adminText.style.transform = 'translateX(-50%)';
+            adminText.style.fontWeight = 'bold';
+            adminText.style.color = '#4b5563'; // Gray text
+            simArea.appendChild(adminText);
+
+            const stressedAdmin = document.createElement('div');
+            stressedAdmin.textContent = '🧑‍💻'; // Emoji for admin
+            stressedAdmin.style.fontSize = '2.5em';
+            stressedAdmin.style.position = 'absolute';
+            stressedAdmin.style.top = '40px';
+            stressedAdmin.style.left = '50%';
+            stressedAdmin.style.transform = 'translateX(-50%)';
+            stressedAdmin.style.transition = 'opacity 1s ease, transform 0.5s ease';
+            simArea.appendChild(stressedAdmin);
+            adminText.textContent = 'Admin: Overwhelmed!';
+
+            // Represent manual tasks/servers
+            const task1 = createAwsServiceElement('Patching', simArea, '120px', 'calc(50% - 120px)', '#ef4444'); // Red for problem
+            const task2 = createAwsServiceElement('Upgrades', simArea, '120px', 'calc(50% - 0px)', '#ef4444');
+            const task3 = createAwsServiceElement('Scaling CP', simArea, '120px', 'calc(50% + 120px)', '#ef4444');
+            
+            showMessage(simAreaId, 'Before EKS: Manual K8s management is complex...');
+
+            setTimeout(() => {
+                showMessage(simAreaId, 'With EKS: AWS manages the Control Plane!');
+                adminText.textContent = 'Admin: Relaxed with EKS!';
+                stressedAdmin.style.transform = 'translateX(-50%) rotate(360deg) scale(1.2)'; // Fun animation for admin
+                stressedAdmin.textContent = '😎'; // Change to relaxed emoji
+
+                // Fade out manual tasks
+                task1.style.opacity = '0';
+                task2.style.opacity = '0';
+                task3.style.opacity = '0';
+
+                setTimeout(() => {
+                    if(simArea.contains(task1)) simArea.removeChild(task1);
+                    if(simArea.contains(task2)) simArea.removeChild(task2);
+                    if(simArea.contains(task3)) simArea.removeChild(task3);
+
+                    const eksCpManaged = document.createElement('div');
+                    eksCpManaged.className = 'eks-control-plane';
+                    eksCpManaged.innerHTML = '🛡️ EKS Control Plane <br>(AWS Managed)';
+                    eksCpManaged.style.top = '110px'; // Adjusted position
+                    eksCpManaged.style.left = '50%';
+                    eksCpManaged.style.transform = 'translateX(-50%)';
+                    eksCpManaged.style.opacity = '0';
+                    eksCpManaged.style.transition = 'opacity 1s ease';
+                    eksCpManaged.style.backgroundColor = '#10b981'; 
+                    eksCpManaged.style.borderColor = '#059669';
+                    eksCpManaged.style.height = '120px'; // Taller CP box
+                    simArea.appendChild(eksCpManaged);
+                    setTimeout(() => eksCpManaged.style.opacity = '1', 50);
+                }, 1000);
+
+            }, 3000);
+        }
+        // Helper for section 8
+        function createAwsServiceElement(text, parent, top, left, bgColor = '#f97316') {
+            const el = document.createElement('div');
+            el.className = 'aws-service';
+            el.textContent = text;
+            el.style.top = top;
+            el.style.left = left;
+            el.style.transform = 'translateX(-50%)'; // Center the element
+            el.style.backgroundColor = bgColor;
+            el.style.borderColor =bgColor === '#ef4444' ? '#dc2626' : '#ea580c';
+            el.style.width = '90px';
+            el.style.height = '60px';
+            el.style.fontSize = '0.75rem';
+            el.style.transition = 'opacity 0.5s ease';
+            parent.appendChild(el);
+            return el;
+        }
+
+
+        // --- Toggle Section Logic ---
+        function toggleSection(sectionId) {
+            const content = document.getElementById(sectionId + 'Content');
+            const title = content.previousElementSibling; 
+            const arrow = title.querySelector('.arrow');
+
+            if (content.style.display === 'block') {
+                content.style.display = 'none';
+                title.classList.remove('open');
+            } else {
+                // Close all other sections before opening a new one
+                document.querySelectorAll('.content').forEach(c => {
+                    if (c !== content) {
+                        c.style.display = 'none';
+                        c.previousElementSibling.classList.remove('open');
+                    }
+                });
+                
+                content.style.display = 'block';
+                title.classList.add('open');
+            }
+        }
+
+        // Initialize: Keep all sections closed initially
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('.content').forEach(contentArea => {
+                contentArea.style.display = 'none';
+            });
+             document.querySelectorAll('.clickable-title').forEach(title => {
+                title.classList.remove('open');
+            });
+        });
+    </script>
+</body>
+</html>

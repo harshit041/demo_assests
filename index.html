@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tech Explainer Hub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Custom styles if needed, complementing Tailwind */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8; /* Light grayish-blue background */
+        }
+        .card {
+            transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .card-button {
+            transition: background-color 0.3s ease;
+        }
+        /* Responsive adjustments for smaller screens */
+        @media (max-width: 640px) {
+            .header-title {
+                font-size: 1.875rem; /* Equivalent to text-3xl */
+            }
+            .card-title {
+                font-size: 1.125rem; /* Equivalent to text-lg */
+            }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4 sm:p-6">
+
+    <header class="text-center mb-8 sm:mb-12">
+        <h1 class="header-title text-3xl sm:text-4xl md:text-5xl font-bold text-gray-800">
+            Welcome to the Tech Explainer Hub
+        </h1>
+        <p class="mt-2 sm:mt-4 text-base sm:text-lg text-gray-600">
+            Your gateway to understanding complex technical concepts.
+        </p>
+    </header>
+
+    <main class="w-full max-w-4xl">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
+
+            <div class="card bg-white rounded-xl shadow-lg overflow-hidden p-6 flex flex-col justify-between">
+                <div>
+                    <h2 class="card-title text-xl sm:text-2xl font-semibold text-gray-700 mb-3">
+                        SaaS Concepts Explained
+                    </h2>
+                    <p class="text-gray-600 text-sm sm:text-base mb-4">
+                        Dive into the fundamentals of Software as a Service, its architecture, benefits, and common examples.
+                    </p>
+                </div>
+                <a href="pages/index1.html" target="_blank"
+                   class="card-button mt-auto inline-block bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg text-center text-sm sm:text-base">
+                    Learn about SaaS
+                </a>
+            </div>
+
+            <div class="card bg-white rounded-xl shadow-lg overflow-hidden p-6 flex flex-col justify-between">
+                <div>
+                    <h2 class="card-title text-xl sm:text-2xl font-semibold text-gray-700 mb-3">
+                        Kubernetes Fundamentals
+                    </h2>
+                    <p class="text-gray-600 text-sm sm:text-base mb-4">
+                        Explore the basics of Kubernetes, container orchestration, its core components, and why it's crucial for modern applications.
+                    </p>
+                </div>
+                <a href="pages/index2.html" target="_blank"
+                   class="card-button mt-auto inline-block bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg text-center text-sm sm:text-base">
+                    Discover Kubernetes
+                </a>
+            </div>
+
+            </div>
+    </main>
+
+    <footer class="text-center mt-10 sm:mt-16 py-4">
+        <p class="text-gray-500 text-xs sm:text-sm">
+            &copy; <span id="currentYear"></span> Tech Explainer Hub. All rights reserved.
+        </p>
+    </footer>
+
+    <script>
+        // JavaScript to set the current year in the footer
+        document.getElementById('currentYear').textContent = new Date().getFullYear();
+
+        // Any future JavaScript for this main page can be added here.
+    </script>
+
+</body>
+</html>

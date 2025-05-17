@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SaaS Architectural Models Simulation on AWS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6; /* Tailwind gray-100 */
+            color: #1f2937; /* Tailwind gray-800 */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .container {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 0.75rem; /* Tailwind rounded-xl */
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); /* Tailwind shadow-lg */
+            width: 100%;
+            max-width: 1200px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        .header h1 {
+            font-size: 2.25rem; /* Tailwind text-4xl */
+            font-weight: 700;
+            color: #4f46e5; /* Tailwind indigo-600 */
+        }
+        .header p {
+            font-size: 1.125rem; /* Tailwind text-lg */
+            color: #4b5563; /* Tailwind gray-600 */
+            margin-top: 0.5rem;
+        }
+        .controls {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding: 1rem;
+            background-color: #eef2ff; /* Tailwind indigo-50 */
+            border-radius: 0.5rem; /* Tailwind rounded-lg */
+        }
+        .controls label {
+            font-weight: 500;
+            margin-right: 0.5rem;
+        }
+        .controls select, .controls button {
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem; /* Tailwind rounded-md */
+            border: 1px solid #d1d5db; /* Tailwind gray-300 */
+            font-size: 1rem;
+        }
+        .controls button {
+            background-color: #4f46e5; /* Tailwind indigo-600 */
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        .controls button:hover {
+            background-color: #4338ca; /* Tailwind indigo-700 */
+        }
+        .simulation-area {
+            display: flex;
+            justify-content: space-around;
+            align-items: flex-start; /* Align items to the top for varying heights */
+            gap: 1.5rem;
+            min-height: 400px;
+            padding: 1rem;
+            border: 1px dashed #9ca3af; /* Tailwind gray-400 */
+            border-radius: 0.5rem; /* Tailwind rounded-lg */
+            background-color: #f9fafb; /* Tailwind gray-50 */
+            overflow-x: auto; /* Allow horizontal scrolling if content overflows */
+        }
+        .model-column {
+            flex: 1;
+            padding: 1rem;
+            border: 1px solid #e5e7eb; /* Tailwind gray-200 */
+            border-radius: 0.5rem; /* Tailwind rounded-lg */
+            background-color: white;
+            min-width: 300px; /* Ensure columns have a minimum width */
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06); /* Tailwind shadow-sm */
+        }
+        .model-column h3 {
+            font-size: 1.25rem; /* Tailwind text-xl */
+            font-weight: 600;
+            color: #374151; /* Tailwind gray-700 */
+            margin-bottom: 1rem;
+            text-align: center;
+            border-bottom: 2px solid #4f46e5; /* Tailwind indigo-500 */
+            padding-bottom: 0.5rem;
+        }
+        .tenant {
+            background-color: #e0e7ff; /* Tailwind indigo-100 */
+            border: 1px solid #c7d2fe; /* Tailwind indigo-200 */
+            border-radius: 0.375rem; /* Tailwind rounded-md */
+            padding: 0.75rem;
+            margin-bottom: 0.75rem;
+            text-align: center;
+            font-weight: 500;
+            transition: transform 0.3s ease, opacity 0.3s ease;
+        }
+        .tenant.new {
+            transform: scale(0.9);
+            opacity: 0;
+        }
+        .resource {
+            font-size: 0.875rem; /* Tailwind text-sm */
+            color: #4b5563; /* Tailwind gray-600 */
+            margin-top: 0.25rem;
+            padding: 0.25rem 0.5rem;
+            background-color: #f0f9ff; /* Tailwind sky-50 */
+            border: 1px dashed #bae6fd; /* Tailwind sky-200 */
+            border-radius: 0.25rem;
+        }
+        .shared-resource-area {
+            margin-top: 1rem;
+            padding: 0.75rem;
+            background-color: #f5f3ff; /* Tailwind violet-50 */
+            border: 1px dashed #ddd6fe; /* Tailwind violet-200 */
+            border-radius: 0.375rem; /* Tailwind rounded-md */
+        }
+        .shared-resource-area h4 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #6d28d9; /* Tailwind violet-700 */
+            margin-bottom: 0.5rem;
+        }
+        .commentary {
+            margin-top: 2rem;
+            padding: 1.5rem;
+            background-color: #fffbeb; /* Tailwind amber-50 */
+            border: 1px solid #fef3c7; /* Tailwind amber-200 */
+            border-radius: 0.5rem; /* Tailwind rounded-lg */
+        }
+        .commentary h4 {
+            font-size: 1.125rem; /* Tailwind text-lg */
+            font-weight: 600;
+            color: #b45309; /* Tailwind amber-700 */
+            margin-bottom: 0.5rem;
+        }
+        .commentary p {
+            font-size: 0.95rem; /* Slightly smaller for commentary */
+            color: #78350f; /* Tailwind amber-800 */
+            line-height: 1.6;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .controls {
+                flex-direction: column;
+                gap: 1rem;
+            }
+            .simulation-area {
+                flex-direction: column;
+                align-items: stretch; /* Stretch columns to full width */
+            }
+            .model-column {
+                min-width: unset; /* Allow columns to shrink */
+            }
+            .header h1 {
+                font-size: 1.875rem; /* Tailwind text-3xl */
+            }
+            .header p {
+                font-size: 1rem; /* Tailwind text-base */
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>SaaS Architectural Models Simulation</h1>
+            <p>Visualize Silo, Bridge, and Pool models for SaaS applications on AWS.</p>
+        </header>
+
+        <div class="controls">
+            <div>
+                <label for="model-select">Select Model to Add Tenant:</label>
+                <select id="model-select">
+                    <option value="silo">Silo Model</option>
+                    <option value="bridge">Bridge Model</option>
+                    <option value="pool">Pool Model</option>
+                </select>
+            </div>
+            <button id="add-tenant-btn">Add Tenant</button>
+            <button id="reset-btn" class="bg-red-500 hover:bg-red-600">Reset Simulation</button>
+        </div>
+
+        <div class="simulation-area">
+            <div id="silo-model" class="model-column">
+                <h3>Silo Model</h3>
+                <div class="tenants-container"></div>
+                <div class="commentary-box" id="silo-commentary-box" style="display:none;"></div>
+            </div>
+            <div id="bridge-model" class="model-column">
+                <h3>Bridge Model</h3>
+                <div class="shared-resource-area">
+                    <h4>Shared Resources</h4>
+                    <div class="resource">Shared App Servers (e.g., EC2 Auto Scaling Group / ECS Cluster)</div>
+                </div>
+                <div class="tenants-container"></div>
+                 <div class="commentary-box" id="bridge-commentary-box" style="display:none;"></div>
+            </div>
+            <div id="pool-model" class="model-column">
+                <h3>Pool Model</h3>
+                 <div class="shared-resource-area">
+                    <h4>Shared Resources</h4>
+                    <div class="resource">Shared App Servers (e.g., EC2/ECS)</div>
+                    <div class="resource">Shared Database (e.g., RDS/DynamoDB with tenant isolation logic)</div>
+                </div>
+                <div class="tenants-container"></div>
+                 <div class="commentary-box" id="pool-commentary-box" style="display:none;"></div>
+            </div>
+        </div>
+
+        <div class="commentary" id="general-commentary">
+            <h4>Understanding the Models:</h4>
+            <p>
+                <strong>Silo Model:</strong> Each tenant gets a completely independent stack of resources. This offers the highest isolation but can be more costly and complex to manage at scale. Imagine each tenant having their own dedicated mini-AWS environment (VPC, EC2, RDS).
+                <br><br>
+                <strong>Bridge Model:</strong> A hybrid approach. Some resources are shared (like application servers) to improve efficiency, while others (often databases) remain dedicated per tenant to ensure strong data isolation. This balances cost and isolation.
+                <br><br>
+                <strong>Pool Model:</strong> Most resources (application servers, databases) are shared among all tenants. The application logic itself is responsible for keeping tenant data separate and secure (e.g., using a `tenant_id` column in database tables). This is the most cost-efficient but requires careful design for isolation and to avoid "noisy neighbor" issues.
+            </p>
+            <p id="action-commentary" class="mt-4 font-semibold"></p>
+        </div>
+    </div>
+
+    <script>
+        // --- Simulation Logic ---
+        const siloModelDiv = document.getElementById('silo-model').querySelector('.tenants-container');
+        const bridgeModelDiv = document.getElementById('bridge-model').querySelector('.tenants-container');
+        const poolModelDiv = document.getElementById('pool-model').querySelector('.tenants-container');
+        
+        const siloCommentaryBox = document.getElementById('silo-commentary-box');
+        const bridgeCommentaryBox = document.getElementById('bridge-commentary-box');
+        const poolCommentaryBox = document.getElementById('pool-commentary-box');
+
+        const modelSelect = document.getElementById('model-select');
+        const addTenantBtn = document.getElementById('add-tenant-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const actionCommentary = document.getElementById('action-commentary');
+
+        let tenantCounter = 0;
+
+        // Function to add visual tenant element
+        function addTenantElement(parentElement, tenantId, resources) {
+            const tenantDiv = document.createElement('div');
+            tenantDiv.classList.add('tenant', 'new');
+            tenantDiv.innerHTML = `<strong>Tenant ${tenantId}</strong>`;
+            
+            resources.forEach(res => {
+                const resourceDiv = document.createElement('div');
+                resourceDiv.classList.add('resource');
+                resourceDiv.textContent = res;
+                tenantDiv.appendChild(resourceDiv);
+            });
+            
+            parentElement.appendChild(tenantDiv);
+            // Trigger reflow for animation
+            requestAnimationFrame(() => {
+                tenantDiv.classList.remove('new');
+            });
+        }
+
+        // Function to update model-specific commentary
+        function updateModelCommentary(model, tenantId) {
+            let box, text;
+            switch(model) {
+                case 'silo':
+                    box = siloCommentaryBox;
+                    text = `Tenant ${tenantId} added to Silo. Notice the dedicated set of resources (VPC, App, DB). This provides strong isolation but means higher resource allocation per tenant.`;
+                    break;
+                case 'bridge':
+                    box = bridgeCommentaryBox;
+                    text = `Tenant ${tenantId} added to Bridge. They get a dedicated DB, but share App Servers. This is a balance between isolation and cost.`;
+                    break;
+                case 'pool':
+                    box = poolCommentaryBox;
+                    text = `Tenant ${tenantId} added to Pool. They share all infrastructure. Application logic (not shown here) is key to isolating their data within the shared resources. Most cost-effective at scale.`;
+                    break;
+            }
+            if (box) {
+                box.innerHTML = `<p>${text}</p>`;
+                box.style.display = 'block';
+                // Add some styling to commentary boxes if needed
+                box.classList.add('mt-2', 'p-2', 'text-sm', 'bg-gray-100', 'rounded');
+            }
+        }
+
+
+        // Event listener for adding a tenant
+        addTenantBtn.addEventListener('click', () => {
+            tenantCounter++;
+            const selectedModel = modelSelect.value;
+            actionCommentary.textContent = `Adding Tenant ${tenantCounter} to the ${selectedModel.charAt(0).toUpperCase() + selectedModel.slice(1)} Model...`;
+
+            if (selectedModel === 'silo') {
+                addTenantElement(siloModelDiv, tenantCounter, [
+                    'Dedicated VPC',
+                    'Dedicated App Server (EC2/ECS Task)',
+                    'Dedicated Database (RDS Instance)'
+                ]);
+                updateModelCommentary('silo', tenantCounter);
+            } else if (selectedModel === 'bridge') {
+                addTenantElement(bridgeModelDiv, tenantCounter, [
+                    'Dedicated Database (RDS Schema/Table)',
+                    '(Shares App Servers)'
+                ]);
+                updateModelCommentary('bridge', tenantCounter);
+            } else if (selectedModel === 'pool') {
+                 addTenantElement(poolModelDiv, tenantCounter, [
+                    '(Shares App Servers)',
+                    '(Shares Database - data isolated by tenant_id)'
+                ]);
+                updateModelCommentary('pool', tenantCounter);
+            }
+        });
+
+        // Event listener for resetting the simulation
+        resetBtn.addEventListener('click', () => {
+            tenantCounter = 0;
+            siloModelDiv.innerHTML = '';
+            bridgeModelDiv.innerHTML = '';
+            poolModelDiv.innerHTML = '';
+            actionCommentary.textContent = 'Simulation Reset.';
+            siloCommentaryBox.style.display = 'none';
+            siloCommentaryBox.innerHTML = '';
+            bridgeCommentaryBox.style.display = 'none';
+            bridgeCommentaryBox.innerHTML = '';
+            poolCommentaryBox.style.display = 'none';
+            poolCommentaryBox.innerHTML = '';
+
+        });
+
+        // Initial commentary
+        actionCommentary.textContent = 'Select a model and click "Add Tenant" to see how resources are allocated.';
+    </script>
+</body>
+</html>
